@@ -1,8 +1,13 @@
 import unittest
-from selenium import webdriver
-from selenium.webdriver.support.ui import Select
-from selenium.webdriver.common.keys import Keys
 from time import sleep
+
+from selenium import webdriver
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as condition
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
+
 
 class TestRkantor(unittest.TestCase):
     """
@@ -23,15 +28,31 @@ class TestRkantor(unittest.TestCase):
                 print(f"clicked {option.get_attribute(v)}")
                 option.click()
 
+    def select_option_from_element(self, elem, choice_value):
+        v = "value"
+        all_options = elem.find_elements_by_tag_name("option")
+        for option in all_options:
+            if option.get_attribute("value") == choice_value:
+                print(f"clicked {option.get_attribute(v)}")
+                option.click()
+
     def delete_obscuring_elements(self, driver):
         delete_element_script = """
         var elem = document.querySelector("#callpageWrapper");
         elem.remove();
         """
-        coockies = driver.find_element_by_id("accept-cookies")
-        coockies.click()
+        try:
+            coockies = driver.find_element_by_id("accept-cookies")
+            coockies.click()
+        except NoSuchElementException:
+            print("didn't manage to close popup")
         sleep(3)
         driver.execute_script(delete_element_script)
+        path = "//iframe[@class='__ipPerunElement']//a[@id='close']"
+        try:
+            driver.find_element_by_xpath(path).click()
+        except NoSuchElementException:
+            print("didn't manage to close popup")
 
     def test_simpletest(self):
         """
@@ -110,6 +131,84 @@ class TestRkantor(unittest.TestCase):
             print(f"{k}: {banks[k]}")
         assert banks["16"]
         assert len(banks_list) == 16
+
+    def test_task_3(self):
+        """
+        goes through menu to fill in specific form in one of banks and retrieve bank transfer data
+        :return:
+        """
+        bank_transfer_data = {
+            "kwota": "666,00 HRK",
+            "nazwa": "BNP PARIBAS SOLUTIONS SP. Z O.O.",
+            "adres": "00-844 WARSZAWA UL. GRZYBOWSKA 78"
+        }
+        driver = self.driver
+        driver.get(self.site)
+        path1 = "//div[@id='header']//a[@id='open_menu']"
+        path2 = "//ul[@id='footer-links']//a[@href='/banki/']"
+        path3 = "//div[@id='content']//h2/a[text()='PKO Bank Polski']/../../a[text()='Więcej']"
+        path4 = "//div[@id='banks-input']"
+        path_form_email = "//input[@id='email']"
+        path_form_money = "//input[@id='bank-amount']"
+        path_form_currency = "//select[@id='bank-currency']"
+        path_submit = "//button[@id='banks-submit']"
+        path_result = "//div[@id='banks-result']"
+
+
+        open_menu_btn = driver.find_element_by_xpath(path1)
+        open_menu_btn.click()
+        self.delete_obscuring_elements(driver)
+        try:
+            visible_menu = WebDriverWait(driver, 10).until(
+                condition.visibility_of_element_located((By.ID, "main_menu"))
+            )
+            bank_tables = visible_menu.find_element_by_xpath(path2)
+            bank_tables.click()
+        except TimeoutException as e:
+            print(e)
+            driver.close()
+        try:
+            more = WebDriverWait(driver, 10).until(
+                condition.presence_of_element_located((By.XPATH, path3))
+            ).click()
+        except TimeoutException as e:
+            print(e)
+            driver.close()
+        try:
+            input_form = WebDriverWait(driver, 10).until(
+                condition.visibility_of_element_located((By.XPATH, path4))
+            )
+            input_form.find_element_by_xpath(path_form_email).send_keys("ds-bok@rkantor.com")
+            input_form.find_element_by_xpath(path_form_money).send_keys("666")
+            currency = input_form.find_element_by_xpath(path_form_currency)
+            self.select_option_from_element(currency, "HRK")
+            self.select_option_from_element(currency, "HRK")
+            input_form.find_element_by_xpath(path_submit).click()
+        except TimeoutException as e:
+            print(e)
+            print("inputform")
+        out = {}
+        try:
+            bank = driver.find_element_by_xpath(path_result)
+            print(bank.tag_name, bank.get_attribute("class"), bank.get_attribute("id"))
+            bank_info = WebDriverWait(driver, 10).until(
+                condition.visibility_of_element_located((By.XPATH, path_result))
+            )
+            print(bank_info.tag_name, bank_info.get_attribute("class"), bank_info.get_attribute("id"))
+            rows = bank_info.find_elements_by_xpath(".//div[@class='row']")
+            print(len(rows))
+            for row in rows:
+                k = str(row.find_element_by_xpath("./div[1]/b").text)
+                v = str(row.find_element_by_xpath("./div[2]").text)
+                print(k + ": " + v)
+                out[k] = v
+        except TimeoutException as e:
+            print(e)
+            print("bank-info")
+
+        assert out["KWOTA"] == bank_transfer_data["kwota"]
+        assert out["NAZWA"] == bank_transfer_data["nazwa"]
+        assert out["ADRES"] == bank_transfer_data["adres"]
 
     def tearDown(self):
         self.driver.close()
