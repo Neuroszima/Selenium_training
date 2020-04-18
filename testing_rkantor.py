@@ -120,13 +120,13 @@ class TestRkantor(unittest.TestCase):
         banks_list = driver.find_element_by_id(
             "free-transfer").find_element_by_tag_name(
             "ul").find_elements_by_tag_name("li")
-        print(len(banks_list))
         banks = dict()
         i = 1
         for elem in banks_list:
             bank_text = elem.find_element_by_class_name("txt").text
             banks[str(i)] = bank_text
             i += 1
+        print("test 2:")
         for k in banks:
             print(f"{k}: {banks[k]}")
         assert banks["16"]
@@ -134,7 +134,7 @@ class TestRkantor(unittest.TestCase):
 
     def test_task_3(self):
         """
-        goes through menu to fill in specific form in one of banks and retrieve bank transfer data
+         test that goes through menu to fill in specific form in one of banks and retrieve bank transfer data
         :return:
         """
         bank_transfer_data = {
@@ -154,7 +154,6 @@ class TestRkantor(unittest.TestCase):
         path_submit = "//button[@id='banks-submit']"
         path_result = "//div[@id='banks-result']"
 
-
         open_menu_btn = driver.find_element_by_xpath(path1)
         open_menu_btn.click()
         self.delete_obscuring_elements(driver)
@@ -165,15 +164,13 @@ class TestRkantor(unittest.TestCase):
             bank_tables = visible_menu.find_element_by_xpath(path2)
             bank_tables.click()
         except TimeoutException as e:
-            print(e)
-            driver.close()
+            print("timeout reached on \"visible menu\"")
         try:
-            more = WebDriverWait(driver, 10).until(
+            WebDriverWait(driver, 10).until(
                 condition.presence_of_element_located((By.XPATH, path3))
             ).click()
         except TimeoutException as e:
-            print(e)
-            driver.close()
+            print("more, timeout reached")
         try:
             input_form = WebDriverWait(driver, 10).until(
                 condition.visibility_of_element_located((By.XPATH, path4))
@@ -185,27 +182,23 @@ class TestRkantor(unittest.TestCase):
             self.select_option_from_element(currency, "HRK")
             input_form.find_element_by_xpath(path_submit).click()
         except TimeoutException as e:
-            print(e)
-            print("inputform")
+            print("inputform, timeout reached")
         out = {}
         try:
-            bank = driver.find_element_by_xpath(path_result)
-            print(bank.tag_name, bank.get_attribute("class"), bank.get_attribute("id"))
             bank_info = WebDriverWait(driver, 10).until(
                 condition.visibility_of_element_located((By.XPATH, path_result))
             )
-            print(bank_info.tag_name, bank_info.get_attribute("class"), bank_info.get_attribute("id"))
             rows = bank_info.find_elements_by_xpath(".//div[@class='row']")
-            print(len(rows))
             for row in rows:
                 k = str(row.find_element_by_xpath("./div[1]/b").text)
                 v = str(row.find_element_by_xpath("./div[2]").text)
-                print(k + ": " + v)
                 out[k] = v
         except TimeoutException as e:
-            print(e)
-            print("bank-info")
+            print("bank-info, timeout reached")
 
+        print("test 3:")
+        for k in out:
+            print(f"{k}: {out[k]}")
         assert out["KWOTA"] == bank_transfer_data["kwota"]
         assert out["NAZWA"] == bank_transfer_data["nazwa"]
         assert out["ADRES"] == bank_transfer_data["adres"]
